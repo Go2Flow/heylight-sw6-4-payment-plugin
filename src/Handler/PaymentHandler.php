@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Go2FlowHeidiPayPayment\Handler;
+namespace Go2FlowHeyLightPayment\Handler;
 
-use Go2FlowHeidiPayPayment\Helper\Transaction;
-use Go2FlowHeidiPayPayment\Service\HeidiPayApiService;
+use Go2FlowHeyLightPayment\Helper\Transaction;
+use Go2FlowHeyLightPayment\Service\HeyLightApiService;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStates;
@@ -26,7 +26,7 @@ use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\AsynchronousPaymentHandle
 class PaymentHandler implements AsynchronousPaymentHandlerInterface
 {
 
-    const PAYMENT_METHOD_PREFIX = 'heidipay_';
+    const PAYMENT_METHOD_PREFIX = 'heylight_';
     const BASE_URL = 'https://origination.heidipay.com';
     const SANDBOX_BASE_URL = 'https://sandbox-origination.heidipay.com';
 
@@ -41,9 +41,9 @@ class PaymentHandler implements AsynchronousPaymentHandlerInterface
     protected ContainerInterface $container;
 
     /**
-     * @var HeidiPayApiService
+     * @var HeyLightApiService
      */
-    protected HeidiPayApiService $heidiPayApiService;
+    protected HeyLightApiService $heyLightApiService;
 
     /**
      * @var TransactionHandler
@@ -58,20 +58,20 @@ class PaymentHandler implements AsynchronousPaymentHandlerInterface
     /**
      * @param OrderTransactionStateHandler $transactionStateHandler
      * @param ContainerInterface $container
-     * @param HeidiPayApiService $heidiPayApiService
+     * @param HeyLightApiService $heyLightApiService
      * @param TransactionHandler $transactionHandler
      * @param $logger
      */
     public function __construct(
         OrderTransactionStateHandler $transactionStateHandler,
-        ContainerInterface $container,
-        HeidiPayApiService $heidiPayApiService,
-        TransactionHandler $transactionHandler,
-        $logger
+        ContainerInterface           $container,
+        HeyLightApiService           $heyLightApiService,
+        TransactionHandler           $transactionHandler,
+                                     $logger
     ) {
         $this->transactionStateHandler = $transactionStateHandler;
         $this->container = $container;
-        $this->heidiPayApiService = $heidiPayApiService;
+        $this->heyLightApiService = $heyLightApiService;
         $this->transactionHandler = $transactionHandler;
         $this->logger = $logger;
     }
@@ -83,7 +83,6 @@ class PaymentHandler implements AsynchronousPaymentHandlerInterface
      * @param RequestDataBag $dataBag
      * @param SalesChannelContext $salesChannelContext
      * @return RedirectResponse
-     * @throws AsyncPaymentProcessException
      */
     public function pay(AsyncPaymentTransactionStruct $transaction, RequestDataBag $dataBag, SalesChannelContext $salesChannelContext): RedirectResponse
     {
@@ -101,7 +100,7 @@ class PaymentHandler implements AsynchronousPaymentHandlerInterface
 
         // Create HeidiPay Link for checkout and redirect user
         try {
-            $heidiPayGateway = $this->heidiPayApiService->processPayment(
+            $gateway = $this->heyLightApiService->processPayment(
                 $order,
                 $transaction->getReturnUrl(),
                 $productRepository,
@@ -111,10 +110,10 @@ class PaymentHandler implements AsynchronousPaymentHandlerInterface
             $this->transactionHandler->saveTransactionCustomFields(
                 $salesChannelContext,
                 $transactionId,
-                [ 'external_contract_uuid' => $heidiPayGateway['external_contract_uuid'] ]
+                [ 'external_contract_uuid' => $gateway['external_contract_uuid'] ]
             );
 
-            $redirectUrl = $heidiPayGateway['redirect_url'] ;
+            $redirectUrl = $gateway['redirect_url'] ;
         } catch (\Exception $e) {
             throw new AsyncPaymentProcessException(
                 $transactionId,
@@ -129,13 +128,12 @@ class PaymentHandler implements AsynchronousPaymentHandlerInterface
      * @param AsyncPaymentTransactionStruct $transaction
      * @param Request $request
      * @param SalesChannelContext $salesChannelContext
-     * @throws CustomerCanceledAsyncPaymentException
      */
     public function finalize(AsyncPaymentTransactionStruct $transaction, Request $request, SalesChannelContext $salesChannelContext): void
     {
         $context = $salesChannelContext->getContext();
 
-        $heidiPayTransactionStatus = OrderTransactionStates::STATE_OPEN;
+        $heyLightTransactionStatus = OrderTransactionStates::STATE_OPEN;
 
         $orderTransaction = $transaction->getOrderTransaction();
         $stateMachineState = $orderTransaction->getStateMachineState();
@@ -158,33 +156,33 @@ class PaymentHandler implements AsynchronousPaymentHandlerInterface
         if (empty($transactionId)) {
             throw new CustomerCanceledAsyncPaymentException(
                 $transactionId,
-                'Customer canceled the payment on the HeidiPay page'
+                'Customer canceled the payment on the HeyLight page'
             );
         }
 
-        $orderStatus = $this->heidiPayApiService->checkOrderStatus( $externalContractUuid, $salesChannelContext );
+        $orderStatus = $this->heyLightApiService->checkOrderStatus( $externalContractUuid, $salesChannelContext );
 
 
 
         if ( ( !$externalContractUuid || !$orderStatus ) && $totalAmount > 0) {
             throw new CustomerCanceledAsyncPaymentException(
                 $transactionId,
-                'Customer canceled the payment on the HeidiPay page'
+                'Customer canceled the payment on the HeyLight page'
             );
         }
 
         if ($totalAmount <= 0 || $orderStatus == true) {
-            $heidiPayTransactionStatus = Transaction::CONFIRMED;
+            $heyLightTransactionStatus = Transaction::CONFIRMED;
         }
 
-        $this->transactionHandler->handleTransactionStatus($orderTransaction, $heidiPayTransactionStatus, $context);
+        $this->transactionHandler->handleTransactionStatus($orderTransaction, $heyLightTransactionStatus, $context);
 
-        if (!in_array($heidiPayTransactionStatus, [Transaction::CANCELLED, Transaction::DECLINED, Transaction::EXPIRED, Transaction::ERROR])){
+        if (!in_array($heyLightTransactionStatus, [Transaction::CANCELLED, Transaction::DECLINED, Transaction::EXPIRED, Transaction::ERROR])){
             return;
         }
         throw new CustomerCanceledAsyncPaymentException(
             $transactionId,
-            'Customer canceled the payment on the HeidiPay page'
+            'Customer canceled the payment on the HeyLight page'
         );
     }
 
