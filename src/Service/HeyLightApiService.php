@@ -9,6 +9,7 @@ use Go2FlowHeyLightPayment\Helper\OrderHelper;
 use Go2FlowHeyLightPayment\Installer\Modules\PaymentMethodInstaller;
 use Psr\Log\LoggerInterface;
 use Shopware\Core\Checkout\Order\OrderEntity;
+use Shopware\Core\Checkout\Payment\PaymentMethodEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
@@ -168,7 +169,9 @@ class HeyLightApiService
         try {
             $token = $this->getAuthTransactionToken($salesChannelContext->getSalesChannelId());
 
-            $customFields = $order->getTransactions()->last()->getPaymentMethod()->getCustomFields();
+            /** @var PaymentMethodEntity $methodEntity */
+            $methodEntity = $order->getTransactions()->last()->getPaymentMethod();
+            $customFields = $methodEntity->getTranslation('customFields');
             $paymentMethod = null;
             if(!empty($customFields['heylight_payment_method_name'])) {
                 $paymentMethod = $customFields['heylight_payment_method_name'];

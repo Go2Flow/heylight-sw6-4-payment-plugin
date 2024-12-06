@@ -14,7 +14,7 @@ class HeyLightRequester {
         'X-Client-Platform'         => 'shopware-6',
         'X-Client-Platform-Version' => '1.0.0',
         'X-Client-Module'           => 'heidi-shopware-6',
-        'X-Client-Module-Version'   => '1.0.0',
+        'X-Client-Module-Version'   => '1.0.1',
     );
 
     /**
